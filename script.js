@@ -1,18 +1,5 @@
-document.addEventListener('DOMContentLoaded', function() {
-  const sendBtn = document.getElementById("send");
-  const chaveInput = document.getElementById("chave");
-  
-  sendBtn.addEventListener("click", consultarNFE);
-  
-  chaveInput.addEventListener("keypress", function(e) {
-    if (e.key === "Enter") consultarNFE();
-  });
-  
-  // Focar no input
-  chaveInput.focus();
-});
-
-async function consultarNFE() {
+// Função que funciona no GitHub Pages
+async function consultarNFEGitHub() {
   const chave = document.getElementById("chave").value.trim();
   const msg = document.getElementById("mensagem");
   const tabelas = document.getElementById("tabelas");
@@ -23,135 +10,128 @@ async function consultarNFE() {
   msg.style.color = "#b91c1c";
 
   // Validar
-  if (!chave) {
-    msg.textContent = "Digite uma chave de NF-e.";
+  if (!chave || chave.length !== 44 || !/^\d+$/.test(chave)) {
+    msg.textContent = "Digite uma chave válida (44 dígitos).";
     return;
   }
 
-  if (chave.length !== 44 || !/^\d+$/.test(chave)) {
-    msg.textContent = "Formato inválido. A chave deve ter 44 dígitos numéricos.";
-    return;
-  }
-
-  // Mostrar carregamento
   msg.textContent = "Consultando...";
   msg.style.color = "#f97316";
 
   try {
-    // IMPORTANTE: Usando Netlify Function
-    const response = await fetch(`/.netlify/functions/rastrear?key=${encodeURIComponent(chave)}`);
+    // Método 1: Usar proxy CORS que funciona
+    const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=';
+    const apiUrl = `https://api.comprovei.com.br/api/1.1/documents/getStatus?key=${chave}`;
     
+    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
+      headers: {
+        'Authorization': 'Basic dGJhdGlzdGE6R0VaV3VEZ3ZQUHVpdmpCZENick9aNUNsT2NuS2xGdTk=',
+        'Accept': 'application/json'
+      }
+    });
+
     if (!response.ok) {
-      throw new Error(`Erro ${response.status}: ${response.statusText}`);
+      throw new Error('Erro no servidor');
     }
+
+    const text = await response.text();
+    let data;
     
-    const data = await response.json();
-    
-    // Verificar resposta
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Tentar método alternativo se falhar
+      data = await tentarMetodoAlternativo(chave);
+    }
+
+    // Processar resposta
     if (data.error) {
       msg.textContent = data.message;
       return;
     }
 
     if (!data.response_data || data.response_data.length === 0) {
-      msg.textContent = "NF-e não encontrada ou chave inválida.";
+      msg.textContent = "NF-e não encontrada.";
       return;
     }
 
     // Sucesso!
     msg.textContent = "";
     exibirDadosNFE(data.response_data[0].Documento);
-    
+
   } catch (error) {
     console.error("Erro:", error);
-    msg.textContent = `Erro na consulta: ${error.message}`;
+    msg.textContent = "Tentando método alternativo...";
+    
+    // Tentar método alternativo
+    try {
+      const data = await tentarMetodoAlternativo(chave);
+      
+      if (data.error) {
+        msg.textContent = data.message;
+        return;
+      }
+      
+      if (!data.response_data || data.response_data.length === 0) {
+        msg.textContent = "NF-e não encontrada.";
+        return;
+      }
+      
+      msg.textContent = "";
+      exibirDadosNFE(data.response_data[0].Documento);
+      
+    } catch (error2) {
+      msg.textContent = `Use uma extensão de CORS no navegador. Erro: ${error2.message}`;
+    }
   }
 }
 
+// Método alternativo
+async function tentarMetodoAlternativo(chave) {
+  try {
+    // Outro proxy
+    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/';
+    const apiUrl = `https://api.comprovei.com.br/api/1.1/documents/getStatus?key=${chave}`;
+    
+    const response = await fetch(proxyUrl + apiUrl, {
+      headers: {
+        'Authorization': 'Basic dGJhdGlzdGE6R0VaV3VEZ3ZQUHVpdmpCZENick9aNUNsT2NuS2xGdTk='
+      }
+    });
+    
+    return await response.json();
+  } catch (e) {
+    throw e;
+  }
+}
+
+// Exibir dados
 function exibirDadosNFE(doc) {
   const tabelas = document.getElementById("tabelas");
   
-  if (!doc) {
-    tabelas.innerHTML = "<p style='color: #b91c1c;'>Dados da NF-e não disponíveis.</p>";
-    return;
-  }
-
   let html = `
-    <div class="title-section">📋 Informações da Nota Fiscal</div>
+    <div class="title-section">Informações da Nota</div>
     <table>
-      <tr><th>Nome/Razão Social</th><td>${doc.Nome || 'Não informado'}</td></tr>
+      <tr><th>Nome</th><td>${doc.Nome || 'Não informado'}</td></tr>
       <tr><th>Cidade/Estado</th><td>${doc.Cidade || 'Não informada'} - ${doc.Estado || 'Não informado'}</td></tr>
-      <tr><th>Status</th><td><strong>${doc.Status || 'N/A'}</strong> - ${doc.DescricaoStatus || 'Não informado'}</td></tr>
+      <tr><th>Status</th><td>${doc.Status || 'Não informado'} - ${doc.DescricaoStatus || 'Não informado'}</td></tr>
+      <tr><th>Motorista</th><td>${doc.Motorista || 'Não informado'}</td></tr>
+      <tr><th>Placa</th><td>${doc.Placa || 'Não informado'}</td></tr>
+      <tr><th>Rota</th><td>${doc.Rota || 'Não informado'}</td></tr>
   `;
   
-  if (doc.Motorista && doc.Motorista !== 'Não informado') {
-    html += `<tr><th>Motorista</th><td>${doc.Motorista}</td></tr>`;
-  }
-  
-  if (doc.Placa && doc.Placa !== 'Não informado') {
-    html += `<tr><th>Placa do Veículo</th><td>${doc.Placa}</td></tr>`;
-  }
-  
-  if (doc.Rota && doc.Rota !== 'Não informado') {
-    html += `<tr><th>Rota</th><td>${doc.Rota}</td></tr>`;
-  }
-  
   if (doc.LinkTracking) {
-    html += `<tr><th>🔗 Rastreamento</th><td><a href="${doc.LinkTracking}" target="_blank" style="color: #f97316; font-weight: 600;">Abrir página de rastreamento</a></td></tr>`;
+    html += `<tr><th>Rastreamento</th><td><a href="${doc.LinkTracking}" target="_blank">Abrir</a></td></tr>`;
   }
   
-  // Data da consulta
-  html += `
-    <tr><th>Data da Consulta</th><td>${new Date().toLocaleString('pt-BR')}</td></tr>
-    <tr><th>Chave Consultada</th><td style="font-family: monospace; font-size: 13px;">${document.getElementById("chave").value}</td></tr>
-  </table>`;
-  
-  // Itens da nota (se existir)
-  if (doc.Items && doc.Items.length > 0) {
-    html += `
-      <div class="title-section" style="margin-top: 30px;">🛒 Itens da Nota</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Descrição</th>
-            <th>Quantidade</th>
-            <th>Valor Unit.</th>
-            <th>Valor Total</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-    
-    let totalGeral = 0;
-    doc.Items.forEach(item => {
-      const qtd = item.Qtde || 0;
-      const unit = parseFloat(item.VlUnitario || 0);
-      const total = parseFloat(item.VlTotal || 0);
-      totalGeral += total;
-      
-      html += `
-        <tr>
-          <td>${item.Codigo || ''}</td>
-          <td>${item.Descricao || ''}</td>
-          <td>${qtd}</td>
-          <td>R$ ${unit.toFixed(2)}</td>
-          <td>R$ ${total.toFixed(2)}</td>
-        </tr>
-      `;
-    });
-    
-    html += `
-        <tr style="background: #f8fafc; font-weight: bold;">
-          <td colspan="4" style="text-align: right;">TOTAL GERAL:</td>
-          <td>R$ ${totalGeral.toFixed(2)}</td>
-        </tr>
-      </tbody>
-    </table>`;
-  }
-  
+  html += `</table>`;
   tabelas.innerHTML = html;
-  
-  // Rolagem suave para resultados
-  tabelas.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById("send").addEventListener("click", consultarNFEGitHub);
+  document.getElementById("chave").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") consultarNFEGitHub();
+  });
+});
