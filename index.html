@@ -9,25 +9,23 @@
 <body>
 
 <div class="container">
-
   <img class="logo" src="https://storage.googleapis.com/lanort.prd.imagefiles.dynamicssales.com.br/ecommerce/logo.png?p=full" alt="Logo">
-
+  
   <div class="card">
     <h2>Rastreamento de NF-e</h2>
-
     <label>Chave NF-e</label>
-    <input id="chave" type="text" placeholder="Digite a chave da NF-e">
-
+    <input id="chave" type="text" placeholder="Digite a chave da NF-e (44 dígitos)">
     <button id="send">Consultar</button>
-
     <p id="mensagem"></p>
   </div>
-
+  
   <div id="tabelas" class="tabelas"></div>
-
 </div>
 
+<!-- IMPORTANTE: Substitua ESTA URL pela sua do Google Apps Script -->
+<script>
+  const API_URL = 'https://script.google.com/macros/s/AKfycbx2NWK2WXOMl-AyYA172qM8RXCELOcWCIzQPNSCVywyc37mXyFQJEmep2TGcy0xOmCOfw/exec';
+</script>
 <script src="script.js"></script>
-
 </body>
 </html>
