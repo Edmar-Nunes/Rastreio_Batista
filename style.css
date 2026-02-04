@@ -103,4 +103,13 @@ th {
   font-size: 15px;
   color: #b91c1c;
   font-weight: 600;
+  min-height: 24px;
+}
+
+.success {
+  color: #16a34a !important;
+}
+
+.loading {
+  color: #f97316 !important;
 }
